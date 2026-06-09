@@ -144,10 +144,25 @@
 
 ---
 
-## Polish & Hardening (formerly Phase 7)
+## Phase 8 — Robustness + Teacher UX (committed 2026-06-08)
 
-- [ ] Fix PDF line-wrap artifacts — pdfplumber wraps long lines mid-sentence (e.g. "Needs are things you must have to be safe, healthy,." / "and okay.") causing awkward English TTS pauses. Fix in `pdf_reader.py`: join consecutive non-bullet lines that don't end with sentence-terminal punctuation.
-- [ ] Translation prompt drift — "Decision Making" slide produced a `cuando` subordinate clause. Consider tightening the system prompt or adding a post-check pass.
+- [x] **Line-wrap fix** — `pdf_reader.py` now joins consecutive lines that don't end with sentence-terminal punctuation (`.!?:`). Fixes broken English scripts for "Teamwork", "Wants and needs", "Advertisement", "Assembly Line".
+- [x] **Extended bullet detection** — handles `●•-*`, numbered (`1.`, `2)`), and lettered (`a.`, `(b)`) list formats.
+- [x] **TTS retry logic** — `tts_engine.py` retries up to 2 times with 3s delay on synthesis failure.
+- [x] **Idempotent audio skip** — pipeline skips WAV generation if the output file already exists AND the translation is cache-hit. Avoids regenerating slides that haven't changed.
+- [x] **`--force-regen` flag** — CLI flag to override idempotent skip and regenerate all audio.
+- [x] **End-of-run timing** — pipeline logs wall-clock duration after every run.
+- [x] **Text report** — `report.py` writes `_report.txt` to the output folder after each full unfiltered run.
+- [x] **HTML audio player** — `report.py` writes `index.html` with `<audio controls>` per slide, organized by week. Open in any browser; works without a server.
+- [x] **Windows toast notification** — `notifier.py` fires a balloon notification via PowerShell after a full run completes. Fire-and-forget, silently skipped if PowerShell unavailable.
+- [x] **Dry-run intake convention** — name any PDF `my_deck.dryrun.pdf` when dropping into intake to trigger translation-only mode (no audio generated, file stays in intake for inspection).
+
+---
+
+## Polish & Hardening
+
+- [x] Fix PDF line-wrap artifacts — done in Phase 8
+- [ ] Translation prompt drift — "Decision Making" slide produced a `cuando` subordinate clause. Consider tightening the system prompt or adding a post-check pass with sentence length validation.
 - [ ] Final test: run a fresh PDF through the complete pipeline start to finish
 
 ---
@@ -156,11 +171,13 @@
 
 - [ ] **#1 — Google Slides API integration**: replace PDF input with direct Google Slides URL. One-time OAuth setup via Google Cloud Console. Teacher pastes the Slides URL, pipeline reads live deck. No PDF export step needed.
 - [ ] **#2 — Slide change detection**: compare current deck against last run, only re-process slides that changed. Saves time when teacher adds a few slides mid-year.
-- [ ] **#3 — Voice warmth upgrade**: evaluate ElevenLabs voice clone of a known speaker vs. XTTS v2 reference. Run quality comparison before committing.
-- [ ] **#4 — Web UI**: simple local Flask or Gradio interface so teacher can upload PDF and download audio ZIP without touching the terminal.
-- [ ] **#5 — Multi-student profiles**: store separate voice/register/complexity settings per student if other students are added to the program.
+- [ ] **#3 — Gradio web UI**: teacher uploads PDF → audio ZIP downloads automatically. No terminal required.
+- [ ] **#4 — Multi-student profiles**: store separate voice/register/complexity settings per student if other students are added to the program.
+- [ ] **#5 — Voice warmth upgrade**: evaluate ElevenLabs voice clone of a known speaker vs. XTTS v2 reference. Run quality comparison before committing.
+- [ ] **#6 — Subtitle/transcript export**: alongside each `.wav`, write a `.txt` with the spoken script for teacher review or accessibility.
+- [ ] **#7 — Intake ZIP support**: allow dropping a ZIP of PDFs into intake so an entire semester can be queued in one drop.
 
 ---
 
 ## Current Status
-> **Pipeline is fully operational.** Next session: Polish & Hardening (line-wrap fix, prompt tuning) and Backlog features.
+> **Pipeline fully operational with robustness + teacher UX features.** All audio for the Food Service deck is generating correctly. Next: translation prompt drift fix, then Gradio web UI.
