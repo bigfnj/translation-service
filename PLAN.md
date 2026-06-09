@@ -1,0 +1,165 @@
+# Translation Service — Build Plan
+
+## Learner Context (read this first)
+- Student: high school age, autism, 2nd-grade education level, from Mexico
+- Cannot read or write — audio is the **primary** and only delivery mechanism
+- Mexican Spanish dialect only (`es_MX`)
+- Register: `tú` throughout, short declarative sentences, no idioms, no lists read aloud
+- Voice must be consistent all year — same reference audio clips every run
+- Audio pattern per slide: English term → English sentences → 1.5s pause → Spanish term → Spanish sentences
+
+## Decisions Log
+- Translation engine: **Claude API** (anthropic SDK)
+- TTS engine: **Coqui XTTS v2** (local, RTX 4090 24GB)
+- Audio format: **One combined .wav per content slide** (English + Spanish, pause between)
+- Input: **PDF for now** — Google Slides API is Backlog Item #1
+- Dependency manager: **uv** with `pyproject.toml`
+- Slide classification: slides with no bullet points = header → skip
+
+---
+
+## Phase 0 — Environment Setup
+
+> Run once before anything else. All ML packages go inside the project venv via `uv` — never system-wide.
+
+- [x] `uv init` inside `/home/bigfnj/projects/translation-service` (creates `pyproject.toml`)
+- [x] Install PyTorch with CUDA 12.4 support (must come before Coqui TTS):
+  ```
+  uv add torch torchaudio --index https://download.pytorch.org/whl/cu124
+  ```
+- [x] Install remaining project dependencies:
+  ```
+  uv add TTS anthropic pdfplumber python-dotenv
+  ```
+  > Note: Coqui TTS requires Python < 3.12 — project pinned to Python 3.11 via `uv python pin 3.11`
+- [x] Verify CUDA is visible to PyTorch → `True` (RTX 4090 confirmed)
+- [x] Verify Coqui TTS imports cleanly → `TTS OK`
+- [x] Verify Anthropic SDK imports cleanly → `Anthropic SDK OK, version: 0.107.1`
+- [ ] Note: XTTS v2 model weights (~1.8GB) download automatically on first audio generation run — not during install
+
+> **No local LLM needed.** Translation uses Claude API. XTTS v2 is a speech synthesis model, not an LLM.
+
+---
+
+## Phase 1 — Project Scaffold
+
+- [ ] Create `pyproject.toml` with uv (`uv init`)
+- [ ] Create `src/translation_service/` package structure
+- [ ] Create `voices/` directory with placeholder README for reference audio clips
+- [ ] Create `output/` directory with `.gitkeep`
+- [ ] Create `.env.example` with `ANTHROPIC_API_KEY=` placeholder
+- [ ] Create `CLAUDE.md` documenting learner profile, linguistic rules, voice settings, and pipeline overview
+- [ ] Initialize git repo and first commit
+
+---
+
+## Phase 2 — PDF Parser
+
+- [ ] Add `pdfplumber` or `pypdf` as dependency via `uv add`
+- [ ] Implement `src/translation_service/pdf_reader.py`
+  - [ ] Extract text content per page (each page = one slide)
+  - [ ] Return structured list: `[{slide_number, title, bullets: []}]`
+- [ ] Implement `src/translation_service/classifier.py`
+  - [ ] Rule: slide with no bullets AND short title = header → `type: "header"`
+  - [ ] Rule: slide with bullets = content → `type: "content"`
+  - [ ] Log which slides are skipped (headers) and which are processed (content)
+- [ ] Write test: run classifier against the existing PDF, print classification of every slide, verify manually
+
+---
+
+## Phase 3 — Translation Engine
+
+- [ ] Add `anthropic` SDK as dependency via `uv add`
+- [ ] Implement `src/translation_service/translator.py`
+  - [ ] Load `ANTHROPIC_API_KEY` from `.env`
+  - [ ] System prompt encodes all linguistic rules:
+    - Mexican Spanish (`es_MX`)
+    - 2nd-grade vocabulary ceiling
+    - Short declarative sentences (subject → verb → object)
+    - `tú` register
+    - No subordinate clauses, no idioms, no comma-separated lists read aloud
+    - Repeat the key term at least once in the body sentences
+    - Concrete, literal language only
+  - [ ] Input: English term + bullet points
+  - [ ] Output: structured dict `{term_es, sentences_es: []}`
+  - [ ] Cache translations to `output/.translation_cache.json` — never re-translate a slide that hasn't changed
+- [ ] Implement `src/translation_service/script_builder.py`
+  - [ ] Input: English content + translated Spanish content
+  - [ ] Output: ordered list of audio segments with language tags
+    - `[{lang: "en", text: "Host."}, {lang: "en", text: "A host works in a restaurant."}, ..., {lang: "pause"}, {lang: "es", text: "Anfitrión."}, ...]`
+  - [ ] Pause segment = 1.5 second silence injected between English and Spanish blocks
+- [ ] Write test: translate one slide (Host), print full script, verify quality manually
+
+---
+
+## Phase 4 — TTS Engine (Coqui XTTS v2)
+
+- [ ] Add `TTS` (coqui-tts) as dependency via `uv add`
+- [ ] Obtain or record reference audio clips:
+  - [ ] `voices/english_reference.wav` — clear English speaker, 6–10 seconds
+  - [ ] `voices/spanish_reference.wav` — clear Mexican Spanish speaker, 6–10 seconds
+- [ ] Implement `src/translation_service/tts_engine.py`
+  - [ ] Load XTTS v2 model once at startup (model stays in VRAM for batch runs)
+  - [ ] `synthesize_segment(text, lang, reference_wav)` → returns audio array
+  - [ ] `generate_silence(duration_seconds)` → returns silence audio array
+  - [ ] `combine_and_save(segments, output_path)` → concatenates all segments, saves as `.wav`
+  - [ ] Use `en` reference for English segments, `es` reference for Spanish segments
+- [ ] Write test: generate one slide audio, listen and verify clarity and voice consistency
+
+---
+
+## Phase 5 — Pipeline Orchestrator
+
+- [ ] Implement `src/translation_service/pipeline.py`
+  - [ ] Accept input: path to PDF
+  - [ ] For each slide:
+    1. Classify (header → skip with log, content → process)
+    2. Translate (check cache first)
+    3. Build script
+    4. Generate audio
+    5. Save to `output/<week_folder>/slide_<NN>_<term_slug>.wav`
+  - [ ] Print progress: `[3/12] Generating audio: slide_03_host.wav`
+  - [ ] Print summary at end: total slides processed, skipped, audio files written
+- [ ] Implement `cli.py` entry point
+  - [ ] `python cli.py --pdf "path/to/slides.pdf" --output output/`
+  - [ ] `--dry-run` flag: translate and print scripts without generating audio (useful for reviewing translations before committing TTS time)
+
+---
+
+## Phase 6 — First Full Run
+
+- [ ] Run pipeline against `Food Service Industry - Behind the Scenes.pdf`
+- [ ] Review all translation scripts with `--dry-run` before generating audio
+- [ ] Correct any translation issues (update system prompt if needed, re-run)
+- [ ] Generate all audio files
+- [ ] Listen to at least one slide per week, verify:
+  - [ ] English is clear and natural
+  - [ ] Spanish is natural Mexican Spanish (not literal translation)
+  - [ ] Pause between English and Spanish is correct length
+  - [ ] Voice is consistent across all files
+- [ ] Organize output files, verify naming convention is clean
+
+---
+
+## Phase 7 — Polish & Hardening
+
+- [ ] Add `--week` filter flag: `python cli.py --pdf slides.pdf --week 2` (process only one week)
+- [ ] Add `--slide` filter flag for single-slide debugging
+- [ ] Graceful error handling: if TTS fails on one slide, log and continue (don't abort whole run)
+- [ ] Add `CLAUDE.md` content for the translation system prompt history (track prompt versions)
+- [ ] Final test: run a fresh PDF through the complete pipeline start to finish
+
+---
+
+## Backlog (Future Enhancements)
+
+- [ ] **#1 — Google Slides API integration**: replace PDF input with direct Google Slides URL. One-time OAuth setup via Google Cloud Console. Teacher pastes the Slides URL, pipeline reads live deck. No PDF export step needed.
+- [ ] **#2 — Slide change detection**: compare current deck against last run, only re-process slides that changed. Saves time when teacher adds a few slides mid-year.
+- [ ] **#3 — Voice warmth upgrade**: evaluate ElevenLabs voice clone of a known speaker vs. XTTS v2 reference. Run quality comparison before committing.
+- [ ] **#4 — Web UI**: simple local Flask or Gradio interface so teacher can upload PDF and download audio ZIP without touching the terminal.
+- [ ] **#5 — Multi-student profiles**: store separate voice/register/complexity settings per student if other students are added to the program.
+
+---
+
+## Current Status
+> **Phase 1 — Project Scaffold** (not started)

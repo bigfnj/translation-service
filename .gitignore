@@ -1,0 +1,11 @@
+.venv/
+.env
+__pycache__/
+*.pyc
+output/*.wav
+output/.translation_cache.json
+voices/*.wav
+*.egg-info/
+dist/
+.python-version
+uv.lock
