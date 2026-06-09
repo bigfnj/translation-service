@@ -2,8 +2,8 @@
 .env
 __pycache__/
 *.pyc
-output/*.wav
-output/.translation_cache.json
+output/
+*.wav
 voices/*.wav
 *.egg-info/
 dist/

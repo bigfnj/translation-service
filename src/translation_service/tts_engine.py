@@ -1,7 +1,11 @@
+import time
 from pathlib import Path
 
 import numpy as np
 import torch
+
+_RETRY_ATTEMPTS = 2
+_RETRY_DELAY = 3.0
 
 _SAMPLE_RATE = 24000  # XTTS v2 output sample rate
 _MODEL_NAME = "tts_models/multilingual/multi-dataset/xtts_v2"
@@ -33,15 +37,25 @@ def synthesize_segment(text: str, lang: str) -> np.ndarray:
     """
     Synthesize one text segment using the language-appropriate reference clip.
     lang must be "en" or "es".
+    Retries up to _RETRY_ATTEMPTS times on failure before raising.
     Returns float32 audio array at 24000 Hz.
     """
     ref_map = {"en": _VOICES_DIR / "english_reference.wav",
                "es": _VOICES_DIR / "spanish_reference.wav"}
     reference_wav = str(ref_map[lang])
 
-    tts = _get_tts()
-    wav = tts.tts(text=text, speaker_wav=reference_wav, language=lang)
-    return np.array(wav, dtype=np.float32)
+    last_exc = None
+    for attempt in range(_RETRY_ATTEMPTS + 1):
+        try:
+            tts = _get_tts()
+            wav = tts.tts(text=text, speaker_wav=reference_wav, language=lang)
+            return np.array(wav, dtype=np.float32)
+        except Exception as exc:
+            last_exc = exc
+            if attempt < _RETRY_ATTEMPTS:
+                print(f"  [TTS] attempt {attempt + 1} failed — retrying in {_RETRY_DELAY}s: {exc}")
+                time.sleep(_RETRY_DELAY)
+    raise last_exc
 
 
 def generate_silence(duration_seconds: float) -> np.ndarray:

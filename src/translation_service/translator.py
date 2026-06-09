@@ -148,3 +148,8 @@ def translate_slide(slide: dict) -> dict:
     _save_cache(cache)
 
     return result
+
+
+def is_cached(slide: dict) -> bool:
+    """Return True if this slide's translation is already in the cache (content unchanged)."""
+    return _cache_key(slide) in _load_cache()

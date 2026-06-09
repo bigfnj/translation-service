@@ -29,6 +29,8 @@ def main():
                         help="Process only slides from this week number (--pdf only)")
     parser.add_argument("--slide", type=int, default=None,
                         help="Process only the slide with this page number (--pdf only)")
+    parser.add_argument("--force-regen", action="store_true",
+                        help="Regenerate audio even if WAV already exists (--pdf only)")
 
     args = parser.parse_args()
 
@@ -41,6 +43,7 @@ def main():
             dry_run=args.dry_run,
             week_filter=args.week,
             slide_filter=args.slide,
+            force_regen=args.force_regen,
         )
 
 
