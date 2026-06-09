@@ -71,10 +71,9 @@
 
 ## Phase 3 — Translation Engine
 
-- [ ] Add `anthropic` SDK as dependency via `uv add`
-- [ ] Implement `src/translation_service/translator.py`
-  - [ ] Load `ANTHROPIC_API_KEY` from `.env`
-  - [ ] System prompt encodes all linguistic rules:
+- [x] Add `ollama` Python package as dependency via `uv add` (switched from Anthropic API to local Qwen2.5 32B)
+- [x] Implement `src/translation_service/translator.py`
+  - [x] System prompt encodes all linguistic rules:
     - Mexican Spanish (`es_MX`)
     - 2nd-grade vocabulary ceiling
     - Short declarative sentences (subject → verb → object)
@@ -82,15 +81,18 @@
     - No subordinate clauses, no idioms, no comma-separated lists read aloud
     - Repeat the key term at least once in the body sentences
     - Concrete, literal language only
-  - [ ] Input: English term + bullet points
-  - [ ] Output: structured dict `{term_es, sentences_es: []}`
-  - [ ] Cache translations to `output/.translation_cache.json` — never re-translate a slide that hasn't changed
-- [ ] Implement `src/translation_service/script_builder.py`
-  - [ ] Input: English content + translated Spanish content
-  - [ ] Output: ordered list of audio segments with language tags
-    - `[{lang: "en", text: "Host."}, {lang: "en", text: "A host works in a restaurant."}, ..., {lang: "pause"}, {lang: "es", text: "Anfitrión."}, ...]`
-  - [ ] Pause segment = 1.5 second silence injected between English and Spanish blocks
-- [ ] Write test: translate one slide (Host), print full script, verify quality manually
+  - [x] Input: English term + bullet points
+  - [x] Output: structured dict `{term_es, sentences_es: []}`
+  - [x] Cache translations to `output/.translation_cache.json` — never re-translate a slide that hasn't changed
+- [x] Implement `src/translation_service/script_builder.py`
+  - [x] Input: English content + translated Spanish content
+  - [x] Output: ordered list of audio segments with language tags
+  - [x] Pause segment = 1.5 second silence injected between English and Spanish blocks
+- [x] Write test: translated Host + 4 other slides across all 4 weeks — quality verified
+
+> **Decision:** Switched from Claude API to local Qwen2.5 32B (Q3_K_M) via Ollama. No API cost.
+> Model runs with `num_gpu=40` (40/64 layers on GPU ~9.5 GB VRAM, rest on CPU) to avoid WSL2 VRAM contention.
+> Known limitation: PDF line-wraps create orphaned fragments in English script — fix in Phase 7.
 
 ---
 
@@ -164,4 +166,4 @@
 ---
 
 ## Current Status
-> **Phase 3 — Translation Engine** (not started)
+> **Phase 4 — TTS Engine** (not started)
