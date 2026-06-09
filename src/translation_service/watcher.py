@@ -44,10 +44,15 @@ def _process(pdf_path: Path) -> None:
     print(f"[intake] Output → {output_dir}")
 
     try:
-        run_pipeline(pdf_path=str(pdf_path), output_dir=output_dir)
-        dest = _PROCESSED_DIR / pdf_path.name
-        shutil.move(str(pdf_path), str(dest))
-        print(f"[intake] Moved to processed: {dest}")
+        generated = run_pipeline(pdf_path=str(pdf_path), output_dir=output_dir)
+        if generated:
+            dest = _PROCESSED_DIR / pdf_path.name
+            shutil.move(str(pdf_path), str(dest))
+            print(f"[intake] Moved to processed: {dest}")
+        else:
+            print(f"[intake] WARNING: no audio generated for {pdf_path.name}.")
+            print(f"[intake] PDF may be image-only or not a vocabulary slide deck.")
+            print(f"[intake] File left in intake/ — move or delete it manually.")
     except Exception as e:
         print(f"[intake] ERROR processing {pdf_path.name}: {e}")
         print(f"[intake] File left in intake/ for retry.")
