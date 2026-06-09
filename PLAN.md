@@ -119,43 +119,35 @@
 
 ## Phase 5 — Pipeline Orchestrator
 
-- [ ] Implement `src/translation_service/pipeline.py`
-  - [ ] Accept input: path to PDF
-  - [ ] For each slide:
-    1. Classify (header → skip with log, content → process)
-    2. Translate (check cache first)
-    3. Build script
-    4. Generate audio
-    5. Save to `output/<week_folder>/slide_<NN>_<term_slug>.wav`
-  - [ ] Print progress: `[3/12] Generating audio: slide_03_host.wav`
-  - [ ] Print summary at end: total slides processed, skipped, audio files written
-- [ ] Implement `cli.py` entry point
-  - [ ] `python cli.py --pdf "path/to/slides.pdf" --output output/`
-  - [ ] `--dry-run` flag: translate and print scripts without generating audio (useful for reviewing translations before committing TTS time)
+- [x] Implement `src/translation_service/pipeline.py` — full orchestrator with progress logging, error-per-slide isolation, returns generated count
+- [x] Implement `cli.py` — `--pdf`, `--watch`, `--dry-run`, `--week`, `--slide` flags
+- [x] Dry run verified across all 38 slides — translation quality reviewed and approved
 
 ---
 
 ## Phase 6 — First Full Run
 
-- [ ] Run pipeline against `Food Service Industry - Behind the Scenes.pdf`
-- [ ] Review all translation scripts with `--dry-run` before generating audio
-- [ ] Correct any translation issues (update system prompt if needed, re-run)
-- [ ] Generate all audio files
-- [ ] Listen to at least one slide per week, verify:
-  - [ ] English is clear and natural
-  - [ ] Spanish is natural Mexican Spanish (not literal translation)
-  - [ ] Pause between English and Spanish is correct length
-  - [ ] Voice is consistent across all files
-- [ ] Organize output files, verify naming convention is clean
+- [x] Dry run reviewed — all 38 scripts printed and approved
+- [x] All 38 audio files generated — `output/week1` through `output/week4`
+- [x] 5 slides spot-checked across all 4 weeks — English clarity, Spanish naturalness, pause timing all approved by teacher
 
 ---
 
-## Phase 7 — Polish & Hardening
+## Phase 7 — Intake Watcher (added)
 
-- [ ] Add `--week` filter flag: `python cli.py --pdf slides.pdf --week 2` (process only one week)
-- [ ] Add `--slide` filter flag for single-slide debugging
-- [ ] Graceful error handling: if TTS fails on one slide, log and continue (don't abort whole run)
-- [ ] Add `CLAUDE.md` content for the translation system prompt history (track prompt versions)
+- [x] `src/translation_service/watcher.py` — watchdog-based folder monitor
+- [x] Drop PDF into `intake/` → auto-processes → audio in `output/<filename> - MM-DD-YYYY/`
+- [x] On success: PDF moves to `intake/processed/`
+- [x] On zero output (image-only PDF, wrong format): PDF stays in `intake/` with journal warning
+- [x] `translation-watcher.service` — systemd service, starts on WSL boot, logs via journalctl
+- [x] `PYTHONUNBUFFERED=1` — watcher stdout visible in `journalctl -u translation-watcher -f`
+
+---
+
+## Polish & Hardening (formerly Phase 7)
+
+- [ ] Fix PDF line-wrap artifacts — pdfplumber wraps long lines mid-sentence (e.g. "Needs are things you must have to be safe, healthy,." / "and okay.") causing awkward English TTS pauses. Fix in `pdf_reader.py`: join consecutive non-bullet lines that don't end with sentence-terminal punctuation.
+- [ ] Translation prompt drift — "Decision Making" slide produced a `cuando` subordinate clause. Consider tightening the system prompt or adding a post-check pass.
 - [ ] Final test: run a fresh PDF through the complete pipeline start to finish
 
 ---
@@ -171,4 +163,4 @@
 ---
 
 ## Current Status
-> **Phase 5 — Pipeline Orchestrator** (not started)
+> **Pipeline is fully operational.** Next session: Polish & Hardening (line-wrap fix, prompt tuning) and Backlog features.
