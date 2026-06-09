@@ -43,27 +43,29 @@
 
 ## Phase 1 — Project Scaffold
 
-- [ ] Create `pyproject.toml` with uv (`uv init`)
-- [ ] Create `src/translation_service/` package structure
-- [ ] Create `voices/` directory with placeholder README for reference audio clips
-- [ ] Create `output/` directory with `.gitkeep`
-- [ ] Create `.env.example` with `ANTHROPIC_API_KEY=` placeholder
-- [ ] Create `CLAUDE.md` documenting learner profile, linguistic rules, voice settings, and pipeline overview
-- [ ] Initialize git repo and first commit
+- [x] Create `pyproject.toml` with uv (`uv init`)
+- [x] Create `src/translation_service/` package structure
+- [x] Create `voices/` directory with placeholder README for reference audio clips
+- [x] Create `output/` directory with `.gitkeep`
+- [x] Create `.env.example` with `ANTHROPIC_API_KEY=` placeholder
+- [x] Create `CLAUDE.md` documenting learner profile, linguistic rules, voice settings, and pipeline overview
+- [x] Initialize git repo and first commit
 
 ---
 
 ## Phase 2 — PDF Parser
 
-- [ ] Add `pdfplumber` or `pypdf` as dependency via `uv add`
-- [ ] Implement `src/translation_service/pdf_reader.py`
-  - [ ] Extract text content per page (each page = one slide)
-  - [ ] Return structured list: `[{slide_number, title, bullets: []}]`
-- [ ] Implement `src/translation_service/classifier.py`
-  - [ ] Rule: slide with no bullets AND short title = header → `type: "header"`
-  - [ ] Rule: slide with bullets = content → `type: "content"`
-  - [ ] Log which slides are skipped (headers) and which are processed (content)
-- [ ] Write test: run classifier against the existing PDF, print classification of every slide, verify manually
+- [x] Add `pdfplumber` or `pypdf` as dependency via `uv add`
+- [x] Implement `src/translation_service/pdf_reader.py`
+  - [x] Extract text content per page (each page = one slide)
+  - [x] Return structured list: `[{slide_number, title, bullets, paragraphs, raw_text}]`
+  - [x] Handles both Week 1 bullet format and Weeks 2–4 paragraph format
+- [x] Implement `src/translation_service/classifier.py`
+  - [x] Rule: title-only or empty = header → `type: "header"` or `"empty"`
+  - [x] Rule: any content after title = content → `type: "content"`
+  - [x] Deduplicates exact-match repeated pages → `type: "duplicate"` (Line Cook, Kitchen)
+  - [x] Tracks current week number and assigns to each content slide
+- [x] Write test: ran classifier against full PDF → 38 content, 22 headers, 26 empty, 2 duplicates — verified correct
 
 ---
 
@@ -162,4 +164,4 @@
 ---
 
 ## Current Status
-> **Phase 1 — Project Scaffold** (not started)
+> **Phase 3 — Translation Engine** (not started)
