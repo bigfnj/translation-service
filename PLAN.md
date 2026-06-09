@@ -98,17 +98,22 @@
 
 ## Phase 4 — TTS Engine (Coqui XTTS v2)
 
-- [ ] Add `TTS` (coqui-tts) as dependency via `uv add`
-- [ ] Obtain or record reference audio clips:
-  - [ ] `voices/english_reference.wav` — clear English speaker, 6–10 seconds
-  - [ ] `voices/spanish_reference.wav` — clear Mexican Spanish speaker, 6–10 seconds
-- [ ] Implement `src/translation_service/tts_engine.py`
-  - [ ] Load XTTS v2 model once at startup (model stays in VRAM for batch runs)
-  - [ ] `synthesize_segment(text, lang, reference_wav)` → returns audio array
-  - [ ] `generate_silence(duration_seconds)` → returns silence audio array
-  - [ ] `combine_and_save(segments, output_path)` → concatenates all segments, saves as `.wav`
-  - [ ] Use `en` reference for English segments, `es` reference for Spanish segments
-- [ ] Write test: generate one slide audio, listen and verify clarity and voice consistency
+- [x] `TTS` (coqui-tts) already installed as dependency
+- [x] Reference audio clips provided:
+  - [x] `voices/english_reference.wav` — 11.6s, 48kHz stereo
+  - [x] `voices/spanish_reference.wav` — 7.9s, 48kHz stereo
+- [x] Implement `src/translation_service/tts_engine.py`
+  - [x] Load XTTS v2 model once at startup (model stays in VRAM for batch runs)
+  - [x] `synthesize_segment(text, lang)` → synthesizes using language-appropriate reference clip
+  - [x] `generate_silence(duration_seconds)` → returns silence audio array
+  - [x] `combine_and_save(segments, output_path)` → concatenates all segments, saves as `.wav`
+  - [x] `generate_slide_audio(script_segments, output_path)` → full slide in one call
+- [x] Write test: generated `output/test/slide_04_host.wav` — all 11 segments (EN + pause + ES)
+
+> **Fixes applied:**
+> - `transformers` pinned to `==4.44.2` — v5.x requires PyTorch 2.7+ (`float8_e8m0fnu`)
+> - `torch.load` monkey-patched during model load to use `weights_only=False` — PyTorch 2.6 tightened defaults, breaking Coqui's checkpoint loading (safe: XTTS v2 is a trusted public model)
+> - `COQUI_TOS_AGREED=1` env var required to skip interactive license prompt
 
 ---
 
@@ -166,4 +171,4 @@
 ---
 
 ## Current Status
-> **Phase 4 — TTS Engine** (not started)
+> **Phase 5 — Pipeline Orchestrator** (not started)

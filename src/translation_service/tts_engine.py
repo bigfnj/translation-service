@@ -1,0 +1,84 @@
+from pathlib import Path
+
+import numpy as np
+import torch
+
+_SAMPLE_RATE = 24000  # XTTS v2 output sample rate
+_MODEL_NAME = "tts_models/multilingual/multi-dataset/xtts_v2"
+_VOICES_DIR = Path("voices")
+
+_tts = None  # loaded once, stays in memory for the full pipeline run
+
+
+def _get_tts():
+    global _tts
+    if _tts is None:
+        # PyTorch 2.6+ defaults weights_only=True in torch.load, which breaks Coqui's
+        # checkpoint loading (it uses custom classes in the pickle). XTTS v2 weights
+        # are from a trusted public release, so weights_only=False is safe here.
+        _original_load = torch.load
+        torch.load = lambda *a, **kw: _original_load(*a, **{**kw, "weights_only": False})
+
+        from TTS.api import TTS
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        print(f"Loading XTTS v2 on {device}...")
+        _tts = TTS(_MODEL_NAME).to(device)
+
+        torch.load = _original_load  # restore after model is loaded
+        print("XTTS v2 ready.")
+    return _tts
+
+
+def synthesize_segment(text: str, lang: str) -> np.ndarray:
+    """
+    Synthesize one text segment using the language-appropriate reference clip.
+    lang must be "en" or "es".
+    Returns float32 audio array at 24000 Hz.
+    """
+    ref_map = {"en": _VOICES_DIR / "english_reference.wav",
+               "es": _VOICES_DIR / "spanish_reference.wav"}
+    reference_wav = str(ref_map[lang])
+
+    tts = _get_tts()
+    wav = tts.tts(text=text, speaker_wav=reference_wav, language=lang)
+    return np.array(wav, dtype=np.float32)
+
+
+def generate_silence(duration_seconds: float) -> np.ndarray:
+    """Return a silence buffer of the given duration at 24000 Hz."""
+    n_samples = int(_SAMPLE_RATE * duration_seconds)
+    return np.zeros(n_samples, dtype=np.float32)
+
+
+def combine_and_save(audio_segments: list[np.ndarray], output_path: str) -> None:
+    """Concatenate all audio segments and write to a WAV file."""
+    import soundfile as sf
+    combined = np.concatenate(audio_segments)
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    sf.write(output_path, combined, _SAMPLE_RATE)
+
+
+def generate_slide_audio(script_segments: list[dict], output_path: str) -> None:
+    """
+    Given the ordered segment list from script_builder.build_script(),
+    synthesize each segment and save the combined audio to output_path.
+
+    Skips synthesis for pause segments and uses generate_silence() instead.
+    Prints progress for each segment.
+    """
+    audio_parts = []
+    total = len(script_segments)
+
+    for i, seg in enumerate(script_segments, 1):
+        lang = seg["lang"]
+
+        if lang == "pause":
+            audio_parts.append(generate_silence(seg["duration"]))
+            print(f"  [{i}/{total}] [pause {seg['duration']}s]")
+        else:
+            text = seg["text"]
+            print(f"  [{i}/{total}] [{lang.upper()}] {text}")
+            audio_parts.append(synthesize_segment(text, lang))
+
+    combine_and_save(audio_parts, output_path)
+    print(f"  Saved → {output_path}")
