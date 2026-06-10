@@ -72,27 +72,42 @@ def combine_and_save(audio_segments: list[np.ndarray], output_path: str) -> None
     sf.write(output_path, combined, _SAMPLE_RATE)
 
 
-def generate_slide_audio(script_segments: list[dict], output_path: str) -> None:
+def generate_slide_audio(script_segments: list[dict], output_path: str) -> list[dict]:
     """
     Given the ordered segment list from script_builder.build_script(),
     synthesize each segment and save the combined audio to output_path.
 
-    Skips synthesis for pause segments and uses generate_silence() instead.
-    Prints progress for each segment.
+    Returns a list of timing dicts — one per segment — each with keys:
+      lang, type, text, start (seconds), end (seconds)
+
+    Pause segments are included in the timing list so the player knows
+    when the English block ends and the Spanish block begins.
     """
     audio_parts = []
+    timings: list[dict] = []
+    cursor = 0.0
     total = len(script_segments)
 
     for i, seg in enumerate(script_segments, 1):
         lang = seg["lang"]
 
         if lang == "pause":
-            audio_parts.append(generate_silence(seg["duration"]))
-            print(f"  [{i}/{total}] [pause {seg['duration']}s]")
+            duration = seg["duration"]
+            audio_parts.append(generate_silence(duration))
+            timings.append({"lang": "pause", "type": "pause", "text": "",
+                            "start": cursor, "end": cursor + duration})
+            print(f"  [{i}/{total}] [pause {duration}s]")
+            cursor += duration
         else:
             text = seg["text"]
             print(f"  [{i}/{total}] [{lang.upper()}] {text}")
-            audio_parts.append(synthesize_segment(text, lang))
+            wav = synthesize_segment(text, lang)
+            duration = len(wav) / _SAMPLE_RATE
+            timings.append({"lang": lang, "type": seg.get("type", "sentence"),
+                            "text": text, "start": cursor, "end": cursor + duration})
+            audio_parts.append(wav)
+            cursor += duration
 
     combine_and_save(audio_parts, output_path)
     print(f"  Saved → {output_path}")
+    return timings

@@ -1,3 +1,4 @@
+import json
 import re
 import time
 from pathlib import Path
@@ -7,6 +8,7 @@ from .classifier import classify_slides
 from .translator import translate_slide, is_cached
 from .script_builder import build_script, format_script_preview
 from .tts_engine import generate_slide_audio
+from .slide_renderer import render_slide_images
 from .report import write_report, write_html_player
 from .notifier import notify
 
@@ -21,7 +23,7 @@ def run(pdf_path: str, output_dir: str = "output", dry_run: bool = False,
         week_filter: int = None, slide_filter: int = None,
         force_regen: bool = False) -> int:
     """
-    Full pipeline: read PDF → classify → translate → build script → generate audio.
+    Full pipeline: read PDF → classify → translate → render images → generate audio.
 
     Returns the number of audio files written (0 if dry_run or nothing to process).
     """
@@ -52,6 +54,13 @@ def run(pdf_path: str, output_dir: str = "output", dry_run: bool = False,
         print("No content slides found — PDF may be image-only or not a vocabulary deck.")
         return 0
 
+    # Render slide images once up front (idempotent — skips existing files)
+    if not dry_run:
+        print("  Rendering slide images...")
+        image_map = render_slide_images(pdf_path, content, output_dir)
+    else:
+        image_map = {}
+
     total     = len(content)
     generated = 0
     cached    = 0
@@ -59,7 +68,8 @@ def run(pdf_path: str, output_dir: str = "output", dry_run: bool = False,
     player_slides = []
 
     for i, slide in enumerate(content, 1):
-        label = f"[{i}/{total}] slide_{slide['slide_number']:02d}_{_term_slug(slide['title'])}"
+        slug  = f"slide_{slide['slide_number']:02d}_{_term_slug(slide['title'])}"
+        label = f"[{i}/{total}] {slug}"
 
         try:
             translation = translate_slide(slide)
@@ -71,26 +81,42 @@ def run(pdf_path: str, output_dir: str = "output", dry_run: bool = False,
                 continue
 
             week_dir = Path(output_dir) / f"week{slide['week']}"
-            out_file = week_dir / f"slide_{slide['slide_number']:02d}_{_term_slug(slide['title'])}.wav"
-            rel_path = f"week{slide['week']}/{out_file.name}"
+            out_file = week_dir / f"{slug}.wav"
+            timing_file = week_dir / f"{slug}.json"
+            rel_wav  = f"week{slide['week']}/{out_file.name}"
+
+            imgs = image_map.get(slide["slide_number"], {})
 
             if not force_regen and out_file.exists() and is_cached(slide):
                 print(f"{label} [skip — up to date]")
                 generated += 1
                 cached += 1
-                player_slides.append({"week": slide["week"],
-                                      "slide_number": slide["slide_number"],
-                                      "title": slide["title"],
-                                      "wav_path": rel_path})
+                # Load saved timings so the HTML player has sync data
+                timings = json.loads(timing_file.read_text()) if timing_file.exists() else []
+                player_slides.append({
+                    "week": slide["week"],
+                    "slide_number": slide["slide_number"],
+                    "title": slide["title"],
+                    "wav_path": rel_wav,
+                    "image": imgs.get("image", ""),
+                    "thumb": imgs.get("thumb", ""),
+                    "segments": timings,
+                })
                 continue
 
             print(f"{label}")
-            generate_slide_audio(script, str(out_file))
+            timings = generate_slide_audio(script, str(out_file))
+            timing_file.write_text(json.dumps(timings))
             generated += 1
-            player_slides.append({"week": slide["week"],
-                                  "slide_number": slide["slide_number"],
-                                  "title": slide["title"],
-                                  "wav_path": rel_path})
+            player_slides.append({
+                "week": slide["week"],
+                "slide_number": slide["slide_number"],
+                "title": slide["title"],
+                "wav_path": rel_wav,
+                "image": imgs.get("image", ""),
+                "thumb": imgs.get("thumb", ""),
+                "segments": timings,
+            })
 
         except Exception as e:
             print(f"{label} ERROR: {e}")

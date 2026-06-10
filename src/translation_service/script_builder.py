@@ -16,7 +16,7 @@ def build_script(slide: dict, translation: dict) -> list[dict]:
     segments = []
 
     # English term (the slide title)
-    segments.append({"lang": "en", "text": slide["title"], "duration": None})
+    segments.append({"lang": "en", "type": "term", "text": slide["title"], "duration": None})
 
     # English body — bullets preferred, fall back to paragraphs
     english_lines = slide.get("bullets") or slide.get("paragraphs") or []
@@ -25,17 +25,17 @@ def build_script(slide: dict, translation: dict) -> list[dict]:
         text = line.strip()
         if text and not text.endswith((".", "!", "?")):
             text = text + "."
-        segments.append({"lang": "en", "text": text, "duration": None})
+        segments.append({"lang": "en", "type": "sentence", "text": text, "duration": None})
 
     # Silence between English and Spanish
-    segments.append({"lang": "pause", "text": "", "duration": _PAUSE_SECONDS})
+    segments.append({"lang": "pause", "type": "pause", "text": "", "duration": _PAUSE_SECONDS})
 
     # Spanish term
-    segments.append({"lang": "es", "text": translation["term_es"], "duration": None})
+    segments.append({"lang": "es", "type": "term", "text": translation["term_es"], "duration": None})
 
     # Spanish sentences
     for sentence in translation["sentences_es"]:
-        segments.append({"lang": "es", "text": sentence.strip(), "duration": None})
+        segments.append({"lang": "es", "type": "sentence", "text": sentence.strip(), "duration": None})
 
     return segments
 
