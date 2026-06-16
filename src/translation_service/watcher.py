@@ -1,5 +1,6 @@
 import shutil
 import time
+import traceback
 from datetime import datetime
 from pathlib import Path
 
@@ -13,19 +14,37 @@ _PROCESSED_DIR = _INTAKE_DIR / "processed"
 _OUTPUT_DIR = Path("output")
 _STABLE_CHECKS = 3
 _STABLE_INTERVAL = 1.0
+_MISSING_BUDGET = 5  # consecutive "file not found" polls tolerated before giving up
 
 
-def _wait_for_stable(path: Path) -> None:
+def _wait_for_stable(path: Path) -> bool:
+    """Block until the file size is stable across _STABLE_CHECKS polls.
+
+    Tolerates the file briefly not existing (watchdog can fire on_created before the
+    writer has flushed, or during a copy/rename race). Returns False if the file never
+    materializes within the missing budget, so the caller can skip it — rather than
+    letting a FileNotFoundError escape and kill the observer thread (the old bug).
+    """
     last_size = -1
     stable = 0
+    missing = 0
     while stable < _STABLE_CHECKS:
-        size = path.stat().st_size
+        try:
+            size = path.stat().st_size
+        except FileNotFoundError:
+            missing += 1
+            if missing >= _MISSING_BUDGET:
+                return False
+            stable, last_size = 0, -1
+            time.sleep(_STABLE_INTERVAL)
+            continue
+        missing = 0
         if size == last_size:
             stable += 1
         else:
-            stable = 0
-            last_size = size
+            stable, last_size = 0, size
         time.sleep(_STABLE_INTERVAL)
+    return True
 
 
 def _is_dry_run(pdf_path: Path) -> bool:
@@ -46,7 +65,9 @@ def _process(pdf_path: Path) -> None:
 
     print(f"\n[intake] Detected ({mode}): {pdf_path.name}")
     print(f"[intake] Waiting for file to finish writing...")
-    _wait_for_stable(pdf_path)
+    if not _wait_for_stable(pdf_path):
+        print(f"[intake] Skipping {pdf_path.name}: file disappeared before it stabilized.")
+        return
 
     output_dir = _output_dir_for(pdf_path)
     if not dry_run:
@@ -76,14 +97,25 @@ def _process(pdf_path: Path) -> None:
         print(f"[intake] File left in intake/ for retry.")
 
 
+def _safe_process(pdf_path: Path) -> None:
+    """Run _process but never let an exception escape into the watchdog observer
+    thread — an unhandled error there permanently kills file-watching. Log and continue.
+    """
+    try:
+        _process(pdf_path)
+    except Exception as e:
+        print(f"[intake] ERROR handling {pdf_path.name}: {e} — watcher continues.")
+        traceback.print_exc()
+
+
 class _PDFHandler(FileSystemEventHandler):
     def on_created(self, event):
         if isinstance(event, FileCreatedEvent) and event.src_path.lower().endswith(".pdf"):
-            _process(Path(event.src_path))
+            _safe_process(Path(event.src_path))
 
     def on_moved(self, event):
         if hasattr(event, "dest_path") and event.dest_path.lower().endswith(".pdf"):
-            _process(Path(event.dest_path))
+            _safe_process(Path(event.dest_path))
 
 
 def watch(intake_dir: str = str(_INTAKE_DIR)) -> None:
@@ -102,7 +134,7 @@ def watch(intake_dir: str = str(_INTAKE_DIR)) -> None:
     if existing:
         print(f"[intake] Found {len(existing)} PDF(s) already in intake/ — processing now.")
         for pdf in existing:
-            _process(pdf)
+            _safe_process(pdf)
 
     observer = Observer()
     observer.schedule(_PDFHandler(), str(intake), recursive=False)
