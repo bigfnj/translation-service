@@ -9,3 +9,14 @@ voices/*.wav
 dist/
 .python-version
 uv.lock
+
+# AI agent files — never track (local-only / extension-injected)
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+.github/copilot-instructions.md
+.cursorrules
+.windsurfrules
+.clinerules
+.codex/
+AI_UNDERSTANDING/
