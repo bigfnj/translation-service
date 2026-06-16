@@ -90,6 +90,34 @@ Output lands in `output/` organized by week (`week1/`, `week2/`, etc.). After a 
 - `output/_report.txt` — summary of what was generated, timing, and any errors
 - `output/index.html` — audio player with `<audio controls>` per slide; open in any browser
 
+### Linux service setup (intake automation)
+
+The repo ships `translation-watcher.service` — a systemd unit that watches the `intake/` folder and processes any PDF dropped there. Install it once after cloning:
+
+```bash
+# 1. Copy the unit file
+sudo cp translation-watcher.service /etc/systemd/system/
+
+# 2. Reload systemd and enable on boot
+sudo systemctl daemon-reload
+sudo systemctl enable translation-watcher
+
+# 3. Start immediately
+sudo systemctl start translation-watcher
+
+# 4. Verify
+sudo systemctl status translation-watcher
+```
+
+WSL2 note: WSL does not run systemd by default. Verify it is enabled in `/etc/wsl.conf`:
+
+```ini
+[boot]
+systemd=true
+```
+
+Then restart the WSL instance (`wsl --shutdown` from PowerShell) for the change to take effect.
+
 ### Drop-and-process (intake folder)
 
 The systemd service watches `intake/` and processes any PDF dropped there automatically.
