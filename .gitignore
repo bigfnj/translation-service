@@ -22,3 +22,6 @@ GEMINI.md
 AI_UNDERSTANDING/
 
 SESSION_*
+
+# Intake documents — runtime data (processed source decks), not source code
+intake/processed/*.pdf
