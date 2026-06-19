@@ -1,6 +1,7 @@
 # Translation Service — Build Plan
 
 ## Learner Context (read this first)
+
 - Student: high school age, autism, 2nd-grade education level, from Mexico
 - Cannot read or write — audio is the **primary** and only delivery mechanism
 - Mexican Spanish dialect only (`es_MX`)
@@ -9,6 +10,7 @@
 - Audio pattern per slide: English term → English sentences → 1.5s pause → Spanish term → Spanish sentences
 
 ## Decisions Log
+
 - Translation engine: **Claude API** (anthropic SDK)
 - TTS engine: **Coqui XTTS v2** (local, RTX 4090 24GB)
 - Audio format: **One combined .wav per content slide** (English + Spanish, pause between)
@@ -24,13 +26,17 @@
 
 - [x] `uv init` inside `/home/bigfnj/projects/translation-service` (creates `pyproject.toml`)
 - [x] Install PyTorch with CUDA 12.4 support (must come before Coqui TTS):
-  ```
+
+  ```bash
   uv add torch torchaudio --index https://download.pytorch.org/whl/cu124
   ```
+
 - [x] Install remaining project dependencies:
-  ```
+
+  ```bash
   uv add TTS anthropic pdfplumber python-dotenv
   ```
+
   > Note: Coqui TTS requires Python < 3.12 — project pinned to Python 3.11 via `uv python pin 3.11`
 - [x] Verify CUDA is visible to PyTorch → `True` (RTX 4090 confirmed)
 - [x] Verify Coqui TTS imports cleanly → `TTS OK`
@@ -111,6 +117,7 @@
 - [x] Write test: generated `output/test/slide_04_host.wav` — all 11 segments (EN + pause + ES)
 
 > **Fixes applied:**
+>
 > - `transformers` pinned to `==4.44.2` — v5.x requires PyTorch 2.7+ (`float8_e8m0fnu`)
 > - `torch.load` monkey-patched during model load to use `weights_only=False` — PyTorch 2.6 tightened defaults, breaking Coqui's checkpoint loading (safe: XTTS v2 is a trusted public model)
 > - `COQUI_TOS_AGREED=1` env var required to skip interactive license prompt
@@ -180,4 +187,5 @@
 ---
 
 ## Current Status
+>
 > **Pipeline fully operational with robustness + teacher UX features.** All audio for the Food Service deck is generating correctly. Next: translation prompt drift fix, then Gradio web UI.

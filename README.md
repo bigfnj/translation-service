@@ -10,7 +10,7 @@ All Spanish output uses `es_MX` (Mexican Spanish), `tú` register, 2nd-grade voc
 
 ## What each audio file sounds like
 
-```
+```text
 [English term, spoken clearly]
 [English sentence 1]
 [English sentence 2]
@@ -122,7 +122,7 @@ Then restart the WSL instance (`wsl --shutdown` from PowerShell) for the change 
 
 The systemd service watches `intake/` and processes any PDF dropped there automatically.
 
-```
+```text
 intake/my_deck.pdf        → processes, moves to intake/processed/ on success
 intake/my_deck.dryrun.pdf → translate-only preview, stays in intake/ for review
 ```
@@ -130,11 +130,13 @@ intake/my_deck.dryrun.pdf → translate-only preview, stays in intake/ for revie
 From Windows Explorer: `\\wsl.localhost\Ubuntu\home\bigfnj\projects\translation-service\intake\`
 
 Monitor the service:
+
 ```bash
 journalctl -u translation-watcher -f
 ```
 
 Start / stop / restart:
+
 ```bash
 sudo systemctl restart translation-watcher
 sudo systemctl status translation-watcher
@@ -142,7 +144,7 @@ sudo systemctl status translation-watcher
 
 ## Project structure
 
-```
+```text
 src/translation_service/
   pdf_reader.py      — extracts slide content (title + bullets/paragraphs) from PDF
   classifier.py      — labels each slide: content, header, empty, or duplicate
@@ -164,6 +166,7 @@ translation-watcher.service — systemd unit file
 ## Idempotent runs
 
 The pipeline skips audio generation for any slide where:
+
 1. The output `.wav` already exists, **and**
 2. The translation is in the cache (content hash unchanged)
 
